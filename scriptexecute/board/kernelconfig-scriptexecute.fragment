@@ -1,0 +1,42 @@
+#
+# Use the standard recovery config with the following additions 
+#
+
+CONFIG_LOCALVERSION="-scriptexec"
+
+#
+# Add NFS support
+#
+CONFIG_NETWORK_FILESYSTEMS=y
+CONFIG_NFS_FS=y
+
+#
+# Add support for some extra USB Ethernet device
+#
+
+CONFIG_USB_NET_CDCETHER=y
+CONFIG_USB_RTL8152=y
+
+#
+# Debugging options
+#
+
+CONFIG_DYNAMIC_DEBUG=y
+CONFIG_DEBUG_FS=y
+
+
+#
+# Alternative USB driver
+# If used, you must also built the dwc2 overlay, 
+# and enable it in config.txt
+#
+
+#CONFIG_USB_DWC2=y
+#CONFIG_USB_GADGET=y
+
+
+#
+# Misc options
+#
+
+CONFIG_BCM_VCIO=y

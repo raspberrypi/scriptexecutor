@@ -1,0 +1,1 @@
+source "$BR2_EXTERNAL_SCRIPTEXECUTE_PATH/package/rpi-firmware-custom/Config.in"

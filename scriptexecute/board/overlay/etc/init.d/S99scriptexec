@@ -1,0 +1,70 @@
+#!/bin/sh
+
+#
+# Script executed at start
+#
+
+# Bail out on any error
+set -e
+
+case "$1" in
+  start)
+	echo "Note: shell is available on tty2 for debugging purposes"
+	mount -t debugfs none /sys/kernel/debug || true
+	/sbin/getty -L tty2 0 vt100 &
+  
+	echo "Waiting for eth0 to appear"
+	while [ ! -e /sys/class/net/eth0 ]; do
+		sleep 1
+	done
+
+	ifconfig eth0 up
+	echo "Waiting for network link to go up"
+	while grep -q -v 1 /sys/class/net/eth0/carrier; do
+		sleep 1
+	done
+
+	echo "Obtaining DHCP lease"
+	udhcpc -i eth0
+	
+	#
+	# Parse kernel cmdline options (cmdline.txt)
+	#
+	for p in `cat /proc/cmdline`; do
+		if [ "${p%%=*}" == "script" ]; then
+			SCRIPT="${p#*=}"
+			if [ "${SCRIPT%%:*}" == "http" ]; then
+				echo "Downloading script from $SCRIPT"
+				wget -O /tmp/script $SCRIPT
+				echo "Executing script"
+				sh /tmp/script
+			else
+				SHARE=${SCRIPT%/*}
+				FILENAME=`basename $SCRIPT`
+				
+				echo "Mounting NFS share $SHARE"
+				mount $SHARE /mnt
+				echo "Executing script $FILENAME"
+				cd /mnt
+				sh $FILENAME
+				cd ..
+				echo "Unmounting NFS share"
+				umount /mnt
+			fi
+		fi
+	done
+	
+	echo "Releasing DHCP lease"
+	killall -SIGUSR2 udhcpc
+	sleep 1
+	
+	#halt
+        ;;
+  stop)
+	;;
+  *)
+	echo "Usage: $0 {start|stop}"
+	exit 1
+esac
+
+exit $?
