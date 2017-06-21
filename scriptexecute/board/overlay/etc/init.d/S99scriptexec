@@ -43,7 +43,7 @@ case "$1" in
 				FILENAME=`basename $SCRIPT`
 				
 				echo "Mounting NFS share $SHARE"
-				mount $SHARE /mnt
+				mount -t nfs -o nolock,ro $SHARE /mnt
 				echo "Executing script $FILENAME"
 				cd /mnt
 				sh $FILENAME
