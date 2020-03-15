@@ -1,8 +1,8 @@
 #!/bin/sh
 
-BUILDROOT=buildroot-2017.02
-# Supported targets: cm1 or cm3
-TARGET=cm1
+BUILDROOT=buildroot-2019.11.1
+# Supported targets: cm1, cm3, cmhybrid (supports both)
+TARGET=cmhybrid
 
 #
 # Extract the tarball containing the unmodified buildroot version 
@@ -40,8 +40,8 @@ cp $BUILDROOT/output/images/rpi-firmware/bootcode.bin output
 cp $BUILDROOT/output/images/*.dtb output
 
 # Uncomment if using dwc2
-#mkdir -p output/overlays
-#mv output/dwc2-overlay.dtb output/overlays/dwc2.dtbo
+mkdir -p output/overlays
+mv output/dwc2-overlay.dtb output/overlays/dwc2.dtbo
 
 echo
 echo Build complete. Files are in output folder.

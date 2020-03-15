@@ -1,1 +1,2 @@
+dtoverlay=dwc2,dr_mode=peripheral
 initramfs scriptexecute.img
