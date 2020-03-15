@@ -9,54 +9,121 @@ set -e
 
 case "$1" in
   start)
-	echo "Note: shell is available on tty2 for debugging purposes"
-	mount -t debugfs none /sys/kernel/debug || true
-	/sbin/getty -L tty2 0 vt100 &
+	SERIAL=`cat /proc/cpuinfo | grep Serial | cut -d ' ' -f 2`
+	MODEL=`cat /proc/device-tree/model`
+	MODEL_ESCAPED="${MODEL// /+}"
   
-	echo "Waiting for eth0 to appear"
-	while [ ! -e /sys/class/net/eth0 ]; do
-		sleep 1
-	done
-
-	ifconfig eth0 up
-	echo "Waiting for network link to go up"
-	while grep -q -v 1 /sys/class/net/eth0/carrier; do
-		sleep 1
-	done
-
-	echo "Obtaining DHCP lease"
-	udhcpc -i eth0
-	
 	#
 	# Parse kernel cmdline options (cmdline.txt)
 	#
 	for p in `cat /proc/cmdline`; do
 		if [ "${p%%=*}" == "script" ]; then
 			SCRIPT="${p#*=}"
-			if [ "${SCRIPT%%:*}" == "http" ]; then
-				echo "Downloading script from $SCRIPT"
-				wget -O /tmp/script $SCRIPT
-				echo "Executing script"
-				sh /tmp/script
-			else
-				SHARE=${SCRIPT%/*}
-				FILENAME=`basename $SCRIPT`
-				
-				echo "Mounting NFS share $SHARE"
-				mount -t nfs -o nolock,ro $SHARE /mnt
-				echo "Executing script $FILENAME"
-				cd /mnt
-				sh $FILENAME
-				cd ..
-				echo "Unmounting NFS share"
-				umount /mnt
-			fi
+		fi
+		if [ "$p" == "usbipv6ll" ]; then
+			USBIPV6LL=true
 		fi
 	done
+
+	if [ -e /sys/class/leds/led0 ]; then
+		echo none > /sys/class/leds/led0/trigger
+		echo 0 > /sys/class/leds/led0/brightness
+	fi	
+
+	if [[ -n "$USBIPV6LL" ]]; then
+		# Pretend to be a USB Ethernet adapter, talking to host on IPv6 link-local address
+		GADGET=/sys/kernel/config/usb_gadget/g1
+		MAC="fa:${SERIAL:6:2}:${SERIAL:8:2}:${SERIAL:10:2}:${SERIAL:12:2}:${SERIAL:14:2}"
+		HOST_IPV6="fe80::f8${MAC:3:5}ff:fe${MAC:9:5}${MAC:15:2}%usb0"
+
+		mount -t configfs none /sys/kernel/config
+		mkdir -p $GADGET
+		(cd $GADGET
+		# FIXME: obtain proper USB ID instead of using f055 (FOSS)
+		echo 0xf055 > idVendor
+		echo 0x0002 > idProduct
+		mkdir strings/0x409
+		echo $SERIAL > strings/0x409/serialnumber
+		echo "Raspberry Pi" > strings/0x409/manufacturer
+		echo "CM provisioning" > strings/0x409/product
+		mkdir configs/c.1
+		mkdir configs/c.1/strings/0x409
+		echo "Config 1" > configs/c.1/strings/0x409/configuration
+		echo 500 > configs/c.1/MaxPower
+		#mkdir functions/acm.usb0
+		#ln -s functions/acm.usb0 configs/c.1
+		mkdir functions/ecm.usb0
+		echo $MAC > functions/ecm.usb0/host_addr
+		ln -s functions/ecm.usb0 configs/c.1
+		# Assuming there is only ever going to be one UDC
+		ls /sys/class/udc > UDC
+		)
+
+		echo
+		echo "IP configuration:"
+		echo
+		ifconfig usb0 add fe80::1/64 up
+		ifconfig -a
+		echo "My IPv6 is: fe80::1 / IPv6 of host is: ${HOST_IPV6}"
+		
+		sleep 2
+		
+		SCRIPT="${SCRIPT//\{server\}/[$HOST_IPV6]}"
+		if [ -e /sys/block/mmcblk0/size ]; then
+			STORAGESIZE=`cat /sys/block/mmcblk0/size`
+		fi
+		SCRIPT="${SCRIPT//\{storagesize\}/$STORAGESIZE}"
+		echo "$SCRIPT" >/tmp/url
+
+	else
+		# Expecting USB to switch to device mode and USB Ethernet adapter to be attached
 	
-	echo "Releasing DHCP lease"
-	killall -SIGUSR2 udhcpc
-	sleep 1
+		echo "Note: shell is available on tty2 for debugging purposes"
+		mount -t debugfs none /sys/kernel/debug || true
+		/sbin/getty -L tty2 0 vt100 &
+	
+		echo "Waiting for eth0 to appear"
+		while [ ! -e /sys/class/net/eth0 ]; do
+			sleep 1
+		done
+
+		ifconfig eth0 up
+		echo "Waiting for network link to go up"
+		while grep -q -v 1 /sys/class/net/eth0/carrier; do
+			sleep 1
+		done
+
+		echo "Obtaining DHCP lease"
+		udhcpc -i eth0
+	fi
+	
+	if [ "${SCRIPT%%:*}" == "http" ]; then
+		SCRIPT="${SCRIPT//\{model\}/$MODEL_ESCAPED}"
+		SCRIPT="${SCRIPT//\{serial\}/$SERIAL}"		
+	
+		echo "Downloading script from $SCRIPT"
+		curl -g -o /tmp/script "$SCRIPT"
+		echo "Executing script"
+		sh /tmp/script
+	elif [[ -n "$SCRIPT" ]]; then
+		SHARE=${SCRIPT%/*}
+		FILENAME=`basename $SCRIPT`
+		
+		echo "Mounting NFS share $SHARE"
+		mount -t nfs -o nolock,ro $SHARE /mnt
+		echo "Executing script $FILENAME"
+		cd /mnt
+		sh $FILENAME
+		cd ..
+		echo "Unmounting NFS share"
+		umount /mnt
+	fi
+
+	if [[ -z "$USBIPV6LL" ]]; then
+		echo "Releasing DHCP lease"
+		killall -SIGUSR2 udhcpc
+		sleep 1
+	fi
 	
 	#halt
         ;;

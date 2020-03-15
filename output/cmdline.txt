@@ -1,1 +1,1 @@
-dwc_otg.host_rx_fifo_size=256 dyndbg="module dwc_otg +p" script=http://f.maxnet.eu/scriptexecute/helloworld.sh
+usbipv6ll script=http://{server}/scriptexecute/script.php?serial={serial}&model={model}&storagesize={storagesize}
