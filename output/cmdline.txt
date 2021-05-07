@@ -1,1 +1,1 @@
-usbipv6ll script=http://{server}/scriptexecute/script.php?serial={serial}&model={model}&storagesize={storagesize}
+readjumper script=http://myserver/scriptexecute?serial={serial}&model={model}&storagesize={storagesize}&mac={mac}&inversejumper={jumper}&memorysize={memorysize}&temp={temp}&cid={cid}&csd={csd}

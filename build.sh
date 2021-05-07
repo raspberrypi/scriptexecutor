@@ -1,8 +1,8 @@
 #!/bin/sh
 
 BUILDROOT=buildroot-2019.11.1
-# Supported targets: cm1, cm3, cmhybrid (supports both)
-TARGET=cmhybrid
+# Supported targets: cmhybrid (supports cm1 cm3), cm4
+TARGET=cm4
 
 #
 # Extract the tarball containing the unmodified buildroot version 
@@ -30,7 +30,7 @@ make -C $BUILDROOT
 #
 
 # initramfs file build by buildroot containing the root file system
-cp $BUILDROOT/output/images/rootfs.cpio.gz output/scriptexecute.img
+cp $BUILDROOT/output/images/rootfs.cpio.xz output/scriptexecute.img
 # Linux kernel
 cp $BUILDROOT/output/images/zImage output/kernel.img
 # Raspberry Pi firmware files
@@ -42,6 +42,7 @@ cp $BUILDROOT/output/images/*.dtb output
 # Uncomment if using dwc2
 mkdir -p output/overlays
 mv output/dwc2-overlay.dtb output/overlays/dwc2.dtbo
+mv output/spi-gpio40-45-overlay.dtb output/overlays/spi-gpio40-45.dtbo
 
 echo
 echo Build complete. Files are in output folder.

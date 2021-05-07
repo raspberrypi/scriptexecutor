@@ -12,7 +12,9 @@ case "$1" in
 	SERIAL=`cat /proc/cpuinfo | grep Serial | cut -d ' ' -f 2`
 	MODEL=`cat /proc/device-tree/model`
 	MODEL_ESCAPED="${MODEL// /+}"
-  
+	TEMP=`vcgencmd measure_temp`
+	TEMP=${TEMP:5}
+
 	#
 	# Parse kernel cmdline options (cmdline.txt)
 	#
@@ -23,12 +25,15 @@ case "$1" in
 		if [ "$p" == "usbipv6ll" ]; then
 			USBIPV6LL=true
 		fi
+		if [ "$p" == "readjumper" ]; then
+			READJUMPER=true
+		fi
 	done
 
 	if [ -e /sys/class/leds/led0 ]; then
 		echo none > /sys/class/leds/led0/trigger
 		echo 0 > /sys/class/leds/led0/brightness
-	fi	
+	fi
 
 	if [[ -n "$USBIPV6LL" ]]; then
 		# Pretend to be a USB Ethernet adapter, talking to host on IPv6 link-local address
@@ -69,12 +74,6 @@ case "$1" in
 		sleep 2
 		
 		SCRIPT="${SCRIPT//\{server\}/[$HOST_IPV6]}"
-		if [ -e /sys/block/mmcblk0/size ]; then
-			STORAGESIZE=`cat /sys/block/mmcblk0/size`
-		fi
-		SCRIPT="${SCRIPT//\{storagesize\}/$STORAGESIZE}"
-		echo "$SCRIPT" >/tmp/url
-
 	else
 		# Expecting USB to switch to device mode and USB Ethernet adapter to be attached
 	
@@ -99,10 +98,39 @@ case "$1" in
 	
 	if [ "${SCRIPT%%:*}" == "http" ]; then
 		SCRIPT="${SCRIPT//\{model\}/$MODEL_ESCAPED}"
-		SCRIPT="${SCRIPT//\{serial\}/$SERIAL}"		
-	
+		SCRIPT="${SCRIPT//\{serial\}/$SERIAL}"	
+		SCRIPT="${SCRIPT//\{temp\}/$TEMP}"
+		if [ -e /sys/block/mmcblk0/size ]; then
+			STORAGESIZE=`cat /sys/block/mmcblk0/size`
+		fi
+		SCRIPT="${SCRIPT//\{storagesize\}/$STORAGESIZE}"
+		if [ -e /sys/block/mmcblk0/device/cid ]; then
+                    CID=`cat /sys/block/mmcblk0/device/cid`
+		fi
+		SCRIPT="${SCRIPT//\{cid\}/$CID}"
+		if [ -e /sys/block/mmcblk0/device/csd ]; then
+                    CSD=`cat /sys/block/mmcblk0/device/csd`
+		fi
+		SCRIPT="${SCRIPT//\{csd\}/$CSD}"		
+		MEMORYSIZE=`grep MemTotal /proc/meminfo | awk '{print $2}'`
+		SCRIPT="${SCRIPT//\{memorysize\}/$MEMORYSIZE}"
+		if [ -e /sys/class/net/eth0/address ]; then
+			ETHMAC=`cat /sys/class/net/eth0/address`
+		fi
+		SCRIPT="${SCRIPT//\{mac\}/$ETHMAC}"
+                if [[ -n "$READJUMPER" ]]; then
+                        JUMPER=""
+                        for GPIO in 5 13 21
+                        do
+                            echo "$GPIO" >/sys/class/gpio/export
+                            GPIOVALUE=`cat /sys/class/gpio/gpio$GPIO/value`
+                            JUMPER="$JUMPER$GPIOVALUE"
+                        done
+                fi
+		SCRIPT="${SCRIPT//\{jumper\}/$JUMPER}"
+		
 		echo "Downloading script from $SCRIPT"
-		curl -g -o /tmp/script "$SCRIPT"
+		curl -g --retry 10 --retry-connrefused -o /tmp/script "$SCRIPT"
 		echo "Executing script"
 		sh /tmp/script
 	elif [[ -n "$SCRIPT" ]]; then
