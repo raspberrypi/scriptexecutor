@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-RPI_FIRMWARE_CUSTOM_VERSION = 5bafb302877a08885a526fe081738548dd698ab8
+RPI_FIRMWARE_CUSTOM_VERSION = 995e9f03d17ab09a8821feb85cee368f29d80f89
 RPI_FIRMWARE_CUSTOM_SITE = $(call github,raspberrypi,firmware,$(RPI_FIRMWARE_CUSTOM_VERSION))
 RPI_FIRMWARE_CUSTOM_LICENSE = BSD-3c
 RPI_FIRMWARE_CUSTOM_LICENSE_FILES = boot/LICENCE.broadcom
