@@ -111,7 +111,11 @@ case "$1" in
 		if [ -e /sys/block/mmcblk0/device/csd ]; then
                     CSD=`cat /sys/block/mmcblk0/device/csd`
 		fi
-		SCRIPT="${SCRIPT//\{csd\}/$CSD}"		
+		SCRIPT="${SCRIPT//\{csd\}/$CSD}"
+		if [ -e /proc/device-tree/chosen/bootloader/boot-mode ]; then
+			BOOTMODE=`od -An -tu1 --skip 3 /proc/device-tree/chosen/bootloader/boot-mode |xargs`
+		fi
+		SCRIPT="${SCRIPT//\{bootmode\}/$BOOTMODE}"
 		MEMORYSIZE=`grep MemTotal /proc/meminfo | awk '{print $2}'`
 		SCRIPT="${SCRIPT//\{memorysize\}/$MEMORYSIZE}"
 		if [ -e /sys/class/net/eth0/address ]; then
